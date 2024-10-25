@@ -22,7 +22,7 @@ class Kilter(ClimbingSession):
         self.V13 = V13
 
 # Specify the path to your markdown file
-file_path = "10_17_2024_training.md"
+file_path = "10_17_2024_training_updated.md"
 
 # Open the file in read mode
 with open(file_path, 'r', encoding='utf-8') as file:
@@ -67,8 +67,6 @@ kilter = Kilter(
     V13=5.16           # Example V13 value
 )
 
-# Print the V8 attribute to verify
-print(f"Kilter V8 Performance: {kilter.V8}")
 
 # Find the positions of the headers
 kilter_start = content.find("# **Kilter**")
@@ -82,4 +80,24 @@ else:
 
 
 kilter_soup = BeautifulSoup(html_content,'html.parser')
+
+
+# Find all input elements that have the 'checked' attribute
+checked_elements = kilter_soup.find_all(lambda tag: tag.name == "input" and tag.has_attr('checked'))
+
+# Extract and print the ids of the checked elements
+checked_ids = [element.get('id') for element in checked_elements]
+print(checked_ids)
+
+
+# Filter out angle IDs (those that start with 'angle_')
+angle_ids = [id for id in checked_ids if id.startswith('angle_')]
+
+if len(angle_ids) > 1:
+    print("Too many angles set")
+else:
+    kilter.angle = angle_ids[0].split('_')[1]
+
+
+print(f"The angle is: {kilter.angle}")
 
