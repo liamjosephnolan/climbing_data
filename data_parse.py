@@ -1,4 +1,5 @@
 import yaml
+import pandas as pd
 from datetime import datetime
 from bs4 import BeautifulSoup
 class ClimbingSession:
@@ -87,8 +88,6 @@ checked_elements = kilter_soup.find_all(lambda tag: tag.name == "input" and tag.
 
 # Extract and print the ids of the checked elements
 checked_ids = [element.get('id') for element in checked_elements]
-print(checked_ids)
-
 
 # Filter out angle IDs (those that start with 'angle_')
 angle_ids = [id for id in checked_ids if id.startswith('angle_')]
@@ -100,4 +99,25 @@ else:
 
 
 print(f"The angle is: {kilter.angle}")
+
+# parse for grade id's, split them and convert into int 
+grade_ids = list(map(int,[id.split('V')[1].split('-')[0] for id in checked_ids if id.startswith('grade_')]))
+
+grade_ids = pd.Series(grade_ids).value_counts()
+
+kilter.V6 = grade_ids.get(6,0)
+kilter.V7 = grade_ids.get(7,0)
+kilter.V8 = grade_ids.get(8,0)
+kilter.V9 = grade_ids.get(9,0)
+kilter.V10 = grade_ids.get(10,0)
+kilter.V11 = grade_ids.get(11,0)
+kilter.V12 = grade_ids.get(12, 0)
+kilter.V13 = grade_ids.get(13,0)
+kilter.V14 = grade_ids.get(14,0)
+
+
+
+
+
+
 
