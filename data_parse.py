@@ -1,7 +1,11 @@
 import yaml
 import pandas as pd
+import os
 from datetime import datetime
 from bs4 import BeautifulSoup
+   
+
+# Class Definitons
 class ClimbingSession:
     def __init__(self, weight, day_on, start_time, date):
         self.weight = weight  # in kilograms
@@ -10,7 +14,7 @@ class ClimbingSession:
         self.start_time = start_time  # start time as a string
 
 class Kilter(ClimbingSession):
-    def __init__(self, weight, day_on, start_time, date, angle, V6, V7, V8, V9, V10, V11, V12, V13):
+    def __init__(self, weight, day_on, start_time, date, angle=None, V6=None, V7=None, V8=None, V9=None, V10=None, V11=None, V12=None, V13=None):
         super().__init__(weight, day_on, start_time, date)  # Correct call to parent class
         self.angle = angle
         self.V6 = V6
@@ -22,102 +26,90 @@ class Kilter(ClimbingSession):
         self.V12 = V12
         self.V13 = V13
 
-# Specify the path to your markdown file
-file_path = "10_17_2024_training_updated.md"
+# Fucntion to parse file and extract relevant parameters
+def file_parse(file_path):
 
-# Open the file in read mode
-with open(file_path, 'r', encoding='utf-8') as file:
-    content = file.read()
-
-yaml_part = content.split('---')[1].strip()
-
-try:
-    config = yaml.safe_load(yaml_part)
+    # Open the file in read mode
+    with open(file_path, 'r', encoding='utf-8') as file:
+        content = file.read()
     
-    # Access the parameters
-    date = config.get('date')
-    start_time = config.get('start_time')
-    weight = config.get('weight')  
-    day_on = config.get('day_on')
+    yaml_part = content.split('---')[1].strip() # Split the YAML part
 
-    print(f"Weight: {weight}")
-    print(f"Date: {date}")
-    print(f"Start Time: {start_time}")
-    print(f"Day On: {day_on}")
+    try:
+        config = yaml.safe_load(yaml_part)
+        
+        # Access the parameters
+        date = config.get('date')
+        start_time = config.get('start_time')
+        weight = config.get('weight')  
+        day_on = config.get('day_on')
+
+    except Exception as e:
+        print(f"Error parsing YAML: {e}")
+
+    # Create an instance of ClimbingSession
+    climbing_session = ClimbingSession(weight=weight, day_on=day_on, start_time=start_time, date=date)
+
+    # Now create an instance of Kilter
+    kilter = Kilter(
+        weight=weight,      # Provide weight
+        day_on=day_on,     # Provide days on
+        start_time=start_time,  # Provide start time
+        date=date,          # Provide date
+    )
+
+    # Find the positions of the headers
+    kilter_start = content.find("# **Kilter**")
+    hangboard_start = content.find("#  **Hangboard**")
+
+    # Extract the content between the two headers
+    if kilter_start != -1 and hangboard_start != -1:
+        kilter_content = content[kilter_start:hangboard_start].strip()
+    else:
+        print("One of the headers was not found in the content.")
+
+    kilter_soup = BeautifulSoup(kilter_content,'html.parser')
+
+    # Find all input elements that have the 'checked' attribute
+    checked_elements = kilter_soup.find_all(lambda tag: tag.name == "input" and tag.has_attr('checked'))
+
+    # Extract and print the ids of the checked elements
+    checked_ids = [element.get('id') for element in checked_elements]
+
+    # Filter out angle IDs (those that start with 'angle_')
+    angle_ids = [id for id in checked_ids if id.startswith('angle_')]
+
+    if len(angle_ids) > 1:
+        print("Too many angles set")
+    else:
+        kilter.angle = angle_ids[0].split('_')[1]
+
+    # parse for grade id's, split them and convert into int 
+    grade_ids = list(map(int,[id.split('V')[1].split('-')[0] for id in checked_ids if id.startswith('grade_')]))
+
+    grade_ids = pd.Series(grade_ids).value_counts()
+
+    kilter.V6 = grade_ids.get(6,0)
+    kilter.V7 = grade_ids.get(7,0)
+    kilter.V8 = grade_ids.get(8,0)
+    kilter.V9 = grade_ids.get(9,0)
+    kilter.V10 = grade_ids.get(10,0)
+    kilter.V11 = grade_ids.get(11,0)
+    kilter.V12 = grade_ids.get(12, 0)
+    kilter.V13 = grade_ids.get(13,0)
+    kilter.V14 = grade_ids.get(14,0)
     
-except Exception as e:
-    print(f"Error parsing YAML: {e}")
+    climbing_session.kilter = kilter # Attach kilter to climbing_session class
+    return climbing_session
 
-# Create an instance of ClimbingSession
-climbing_session = ClimbingSession(weight=weight, day_on=day_on, start_time=start_time, date=date)
+folder_path = "./training_data/"
+all_data = []
+for filename in os.listdir(folder_path):
+    file_path = os.path.join(folder_path, filename)
+    climbing_session = file_parse(file_path)
+    all_data.append((filename, climbing_session))
 
-# Now create an instance of Kilter
-kilter = Kilter(
-    weight=weight,      # Provide weight
-    day_on=day_on,     # Provide days on
-    start_time=start_time,  # Provide start time
-    date=date,          # Provide date
-    angle=45,          # Example angle
-    V6=5.10,           # Example V6 value
-    V7=5.11,           # Example V7 value
-    V8=4,              # Set V8 to 4
-    V9=5.12,           # Example V9 value
-    V10=5.13,          # Example V10 value
-    V11=5.14,          # Example V11 value
-    V12=5.15,          # Example V12 value
-    V13=5.16           # Example V13 value
-)
+second_day_v8_grade = all_data[2][1]
+second_day_v8_grade = second_day_v8_grade.kilter.V8
 
-
-# Find the positions of the headers
-kilter_start = content.find("# **Kilter**")
-hangboard_start = content.find("#  **Hangboard**")
-
-# Extract the content between the two headers
-if kilter_start != -1 and hangboard_start != -1:
-    html_content = content[kilter_start:hangboard_start].strip()
-else:
-    print("One of the headers was not found in the content.")
-
-
-kilter_soup = BeautifulSoup(html_content,'html.parser')
-
-
-# Find all input elements that have the 'checked' attribute
-checked_elements = kilter_soup.find_all(lambda tag: tag.name == "input" and tag.has_attr('checked'))
-
-# Extract and print the ids of the checked elements
-checked_ids = [element.get('id') for element in checked_elements]
-
-# Filter out angle IDs (those that start with 'angle_')
-angle_ids = [id for id in checked_ids if id.startswith('angle_')]
-
-if len(angle_ids) > 1:
-    print("Too many angles set")
-else:
-    kilter.angle = angle_ids[0].split('_')[1]
-
-
-print(f"The angle is: {kilter.angle}")
-
-# parse for grade id's, split them and convert into int 
-grade_ids = list(map(int,[id.split('V')[1].split('-')[0] for id in checked_ids if id.startswith('grade_')]))
-
-grade_ids = pd.Series(grade_ids).value_counts()
-
-kilter.V6 = grade_ids.get(6,0)
-kilter.V7 = grade_ids.get(7,0)
-kilter.V8 = grade_ids.get(8,0)
-kilter.V9 = grade_ids.get(9,0)
-kilter.V10 = grade_ids.get(10,0)
-kilter.V11 = grade_ids.get(11,0)
-kilter.V12 = grade_ids.get(12, 0)
-kilter.V13 = grade_ids.get(13,0)
-kilter.V14 = grade_ids.get(14,0)
-
-
-
-
-
-
-
+print(second_day_v8_grade)
